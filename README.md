@@ -137,3 +137,7 @@ To launch the experiment manually, move to the `bin` directory and run the `mono
 - `right-click`+`mouse drag` to rotate the camera
 - `mouse scroll` for zooming in and out
 -`left-shift` added to the camera commands above for precision control
+The source node at every time is highlighted as a larger cube. Every node is colored with two colors:
+- the color in the central part of each node represents the simple collection estimate for that node;
+- the color in the two lateral sides of each node represents the collection estimate with monotonic filtering for that node.
+Colors vary from red (estimate of only one node) to magenta (correct estimate) to black (infinitely large overestimate).

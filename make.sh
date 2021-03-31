@@ -236,6 +236,8 @@ while [ "$1" != "" ]; do
         shift 1
         mkdoc
     elif [ "$1" == "gui" ]; then
+        git submodule init
+        git submodule update
         shift 1
         btype="Release"
         if [ "$1" == "-g" ]; then

@@ -27,7 +27,7 @@ namespace fcpp {
 //! @brief Number of randomised runs of the experiment.
 constexpr int runs = 10;
 //! @brief The maximum time of the simulation.
-constexpr intmax_t end_time = INTERACTIVE ? std::numeric_limits<intmax_t>::max() : 250;
+constexpr intmax_t end_time = INTERACTIVE ? std::numeric_limits<intmax_t>::max()-1 : 250;
 //! @brief The communication range.
 constexpr size_t comm = 100;
 
@@ -142,8 +142,12 @@ MAIN() {
     node.storage(tags::coll<tags::filtered>{})     = fc;
     node.storage(tags::coll_max<tags::simple>{})   = bm;
     node.storage(tags::coll_max<tags::filtered>{}) = fm;
-    node.storage(tags::coll_c<tags::simple>{})     = color::hsva(300.0*log2(bc)/log2(node.storage(tags::devices{})), 1, 1);
-    node.storage(tags::coll_c<tags::filtered>{})   = color::hsva(300.0*log2(fc)/log2(node.storage(tags::devices{})), 1, 1);
+    auto collection_color = [](device_t d, real_t v){
+        if (v < d) return color::hsva(300.0*log2(v)/log2(d), 1, 1);
+        else return color::hsva(300, 1, d/v);
+    };
+    node.storage(tags::coll_c<tags::simple>{})     = collection_color(node.storage(tags::devices{}), bc);
+    node.storage(tags::coll_c<tags::filtered>{})   = collection_color(node.storage(tags::devices{}), fc);
 }
 
 

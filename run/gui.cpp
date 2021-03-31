@@ -19,7 +19,7 @@ using namespace component::tags;
 opt::plotter_t P;
 
 int main() {
-    constexpr device_t dev_num = 1000; // number of devices
+    constexpr device_t dev_num = 100; // number of devices
     constexpr real_t dev_speed = 0; // movement speed of devices
     std::cout << "/*\n";
     {
