@@ -25,7 +25,7 @@ namespace fcpp {
 
 
 //! @brief Number of randomised runs of the experiment.
-constexpr int runs = 10;
+constexpr int runs = 100;
 //! @brief The maximum time of the simulation.
 constexpr intmax_t end_time = INTERACTIVE ? std::numeric_limits<intmax_t>::max()-1 : 250;
 //! @brief The communication range.
@@ -55,7 +55,13 @@ namespace tags {
     struct dist {};
     //! @brief Color representing the distance of the current node.
     struct dist_c {};
+    //! @brief Estimated diameter.
+    struct diam {};
+    //! @brief Estimated diameter times the number of devices.
+    struct diamdev {};
 
+    //! @brief Ideal collection of values.
+    struct ideal {};
     //! @brief Simple collection of values.
     struct simple {};
     //! @brief Filtered collection of values.
@@ -128,9 +134,11 @@ MAIN() {
 
     // compute distances
     pair_t c = abf_constrain(CALL, source);
-    // store distance for displaying purposes
+    // store distance and diameter for displaying purposes
     node.storage(tags::dist{}) = get<0>(c);
     node.storage(tags::dist_c{}) = get<0>(c) == HOP_INF ? BLACK : color::hsva(360.0*get<0>(c)/hops, 1, 1);
+    node.storage(tags::diam{}) = max_gossip(CALL, get<0>(c) < HOP_INF ? get<0>(c) : 0);
+    node.storage(tags::diamdev{}) = node.storage(tags::diam{}) * node.storage(tags::devices{});
 
     // compute collections
     real_t bc = basic_collection(CALL, get<1>(c), 1);
@@ -184,8 +192,12 @@ namespace opt {
     using rectangle_d = distribution::rect<distribution::constant_n<real_t, 0>, distribution::constant_n<real_t, 0>, distribution::constant_i<real_t, side>, distribution::constant_i<real_t, side>>;
 
     using aggregator_t = aggregators<
+        diam,               aggregator::max<real_t>,
+        diamdev,            aggregator::max<real_t>,
+        coll<ideal>,        aggregator::max<real_t>,
         coll<simple>,       aggregator::max<real_t>,
         coll<filtered>,     aggregator::max<real_t>,
+        coll_max<ideal>,    aggregator::max<real_t>,
         coll_max<simple>,   aggregator::max<real_t>,
         coll_max<filtered>, aggregator::max<real_t>
     >;
@@ -196,7 +208,11 @@ namespace opt {
 
     using device_plots = plot::split<speed, plot::filter<plot::time, filter::equal<end_time>, plot::plotter<aggregator_t, devices, coll_max>>>;
 
-    using plotter_t = plot::join<time_plots, plot::join<speed_plots, device_plots>>; 
+    using hops_plots = plot::split<speed, plot::filter<plot::time, filter::equal<end_time>, plot::plotter<aggregator_t, aggregator::max<diam,true>, coll_max>>>;
+
+    using hd_plots = plot::split<speed, plot::filter<plot::time, filter::equal<end_time>, plot::plotter<aggregator_t, aggregator::max<diamdev,true>, coll_max>>>;
+
+    using plotter_t = plot::join<time_plots, plot::join<hd_plots, hops_plots, device_plots, speed_plots>>;
 
     // full option list
     DECLARE_OPTIONS(list,
@@ -215,8 +231,12 @@ namespace opt {
             speed,              real_t,
             dist,               real_t,
             dist_c,             color,
+            diam,               real_t,
+            diamdev,            real_t,
+            coll<ideal>,        real_t,
             coll<simple>,       real_t,
             coll<filtered>,     real_t,
+            coll_max<ideal>,    real_t,
             coll_max<simple>,   real_t,
             coll_max<filtered>, real_t,
             coll_c<simple>,     color,
@@ -226,10 +246,12 @@ namespace opt {
         >,
         spawn_schedule<spawn_s>,
         init<
-            x,          rectangle_d,
-            devices,    distribution::constant_i<device_t, devices>,
-            side,       distribution::constant_i<real_t, side>,
-            speed,      distribution::constant_i<real_t, speed>
+            x,                  rectangle_d,
+            side,               distribution::constant_i<real_t, side>,
+            speed,              distribution::constant_i<real_t, speed>,
+            devices,            distribution::constant_i<device_t, devices>,
+            coll<ideal>,        distribution::constant_i<device_t, devices>,
+            coll_max<ideal>,    distribution::constant_i<device_t, devices>
         >,
         connector<connect::fixed<comm>>,
         extra_info<devices, device_t, speed, real_t>,
@@ -248,7 +270,7 @@ namespace opt {
         return batch::make_tagged_tuple_sequence(
             batch::arithmetic<seed>(0, runs-1, 1),
             batch::arithmetic<devices>(100, 1000, 300),
-            batch::arithmetic<speed>(0, 9, 3),
+            batch::arithmetic<speed>(0, 2, 1),
             batch::stringify<output>("output/raw/batch", "txt"),
             batch::formula<side>([](auto t){
                 return side_for(common::get<devices>(t));
