@@ -66,6 +66,8 @@ namespace tags {
     struct simple {};
     //! @brief Filtered collection of values.
     struct filtered {};
+    //! @brief Strictly collection of values.
+    struct strict {};
 
     //! @brief Collected values.
     template <typename T>
@@ -115,6 +117,14 @@ FUN real_t basic_collection(ARGS, device_t c, real_t val) { CODE
 //! @brief Computes the collection of values according to the given constraining nodes with monotonic filtering.
 FUN real_t filtered_collection(ARGS, pair_t c, real_t val) { CODE
     return nbr(CALL, val, [&](field<real_t> n){
+        return sum_hood(CALL, mux(nbr(CALL, get<0>(c)) > get<0>(c) and nbr(CALL, get<1>(c)) == node.uid, n, real_t(0)), val);
+    });
+}
+
+
+//! @brief Computes the collection of values according to the given constraining nodes with strict monotonic filtering.
+FUN real_t strict_collection(ARGS, pair_t c, real_t val) { CODE
+    return nbr(CALL, val, [&](field<real_t> n){
         return sum_hood(CALL, mux(nbr(CALL, get<0>(c)) == get<0>(c)+1 and nbr(CALL, get<1>(c)) == node.uid, n, real_t(0)), val);
     });
 }
@@ -143,19 +153,24 @@ MAIN() {
     // compute collections
     real_t bc = basic_collection(CALL, get<1>(c), 1);
     real_t fc = filtered_collection(CALL, c, 1);
+    real_t sc = strict_collection(CALL, c, 1);
     real_t bm = max_gossip(CALL, bc);
     real_t fm = max_gossip(CALL, fc);
+    real_t sm = max_gossip(CALL, sc);
     // store collection for displaying purposes
     node.storage(tags::coll<tags::simple>{})       = bc;
     node.storage(tags::coll<tags::filtered>{})     = fc;
+    node.storage(tags::coll<tags::strict>{})       = sc;
     node.storage(tags::coll_max<tags::simple>{})   = bm;
     node.storage(tags::coll_max<tags::filtered>{}) = fm;
+    node.storage(tags::coll_max<tags::strict>{})   = sm;
     auto collection_color = [](device_t d, real_t v){
         if (v < d) return color::hsva(300.0*log2(v)/log2(d), 1, 1);
         else return color::hsva(300, 1, d/v);
     };
     node.storage(tags::coll_c<tags::simple>{})     = collection_color(node.storage(tags::devices{}), bc);
     node.storage(tags::coll_c<tags::filtered>{})   = collection_color(node.storage(tags::devices{}), fc);
+    node.storage(tags::coll_c<tags::strict>{})     = collection_color(node.storage(tags::devices{}), sc);
 }
 
 
@@ -197,9 +212,11 @@ namespace opt {
         coll<ideal>,        aggregator::max<real_t>,
         coll<simple>,       aggregator::max<real_t>,
         coll<filtered>,     aggregator::max<real_t>,
+        coll<strict>,       aggregator::max<real_t>,
         coll_max<ideal>,    aggregator::max<real_t>,
         coll_max<simple>,   aggregator::max<real_t>,
-        coll_max<filtered>, aggregator::max<real_t>
+        coll_max<filtered>, aggregator::max<real_t>,
+        coll_max<strict>,   aggregator::max<real_t>
     >;
 
     using time_plots = plot::split<speed, plot::split<devices, plot::plotter<aggregator_t, plot::time, coll>>>;
@@ -236,11 +253,14 @@ namespace opt {
             coll<ideal>,        real_t,
             coll<simple>,       real_t,
             coll<filtered>,     real_t,
+            coll<strict>,       real_t,
             coll_max<ideal>,    real_t,
             coll_max<simple>,   real_t,
             coll_max<filtered>, real_t,
+            coll_max<strict>,   real_t,
             coll_c<simple>,     color,
             coll_c<filtered>,   color,
+            coll_c<strict>,     color,
             node_size,          real_t,
             node_shape,         shape
         >,
@@ -256,7 +276,7 @@ namespace opt {
         connector<connect::fixed<comm>>,
         extra_info<devices, device_t, speed, real_t>,
         plot_type<plotter_t>,
-        color_tag<coll_c<simple>, coll_c<filtered>>,
+        color_tag<coll_c<simple>, coll_c<filtered>, coll_c<strict>>,
         size_tag<node_size>,
         shape_tag<node_shape>
     );
